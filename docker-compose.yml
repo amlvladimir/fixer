@@ -2,6 +2,16 @@ version: '3'
 services:
   db:
     image: postgres
+    environment:
+      POSTGRES_DB:        ${KONG_PG_DATABASE:-postgres}
+      POSTGRES_USER:      ${KONG_PG_USER:-postgres}
+      POSTGRES_PASSWORD:  ${KONG_PG_PASSWORD:-postgres}
+    restart: on-failure
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "${POSTGRES_USER:-postgres}"]
+      interval: 30s
+      timeout: 30s
+      retries: 3
     volumes:
       - data:/var/lib/postgresql/data
     ports:
@@ -10,7 +20,7 @@ services:
     command: unicorn -c config/unicorn.rb
     entrypoint: bin/wait-for-it.sh db:5432 -s --
     environment:
-      DATABASE_URL: postgres://postgres@db/postgres
+      DATABASE_URL: postgres://postgres:postgres@db/postgres
     expose:
       - '8080'
     links:
@@ -19,7 +29,7 @@ services:
     command: bin/schedule
     entrypoint: bin/wait-for-it.sh db:5432 -s --
     environment:
-      DATABASE_URL: postgres://postgres@db/postgres
+      DATABASE_URL: postgres://postgres:postgres@db/postgres
     links:
       - db
 volumes:
