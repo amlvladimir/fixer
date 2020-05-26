@@ -4,6 +4,8 @@ services:
     image: postgres
     volumes:
       - data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
   web:
     command: unicorn -c config/unicorn.rb
     entrypoint: bin/wait-for-it.sh db:5432 -s --

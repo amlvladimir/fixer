@@ -2,6 +2,7 @@
 
 require 'net/http'
 require 'rexml/document'
+require 'oj'
 
 module Fixer
   # Wraps ECB's data feed
@@ -15,20 +16,21 @@ module Fixer
     }.freeze
 
     def initialize(scope = :current)
+      STDOUT.write "111111142142"
       @scope = SCOPES.fetch(scope) { raise ArgumentError }
     end
 
     def each
-      REXML::XPath.each(document, '/gesmes:Envelope/Cube/Cube[@time]') do |day|
-        date = Date.parse(day.attribute('time').value)
-        REXML::XPath.each(day, './Cube') do |currency|
-          yield(
-            date: date,
-            iso_code: currency.attribute('currency').value,
-            rate: Float(currency.attribute('rate').value)
-          )
-        end
-      end
+      # REXML::XPath.each(document, '/gesmes:Envelope/Cube/Cube[@time]') do |day|
+      #   date = Date.parse(day.attribute('time').value)
+      #   REXML::XPath.each(day, './Cube') do |currency|
+      #     yield(
+      #       date: date,
+      #       iso_code: currency.attribute('currency').value,
+      #       rate: Float(currency.attribute('rate').value)
+      #     )
+      #   end
+      # end
     end
 
     private
