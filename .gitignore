@@ -1,3 +1,4 @@
 .bundle
 .env
 pkg
+data/nginx/app.conf
