@@ -1,53 +1,62 @@
 version: '3'
 services:
   db:
-    restart: unless-stopped
+    image: postgres
+    environment:
+      POSTGRES_DB:        ${KONG_PG_DATABASE:-postgres}
+      POSTGRES_USER:      ${KONG_PG_USER:-postgres}
+      POSTGRES_PASSWORD:  ${KONG_PG_PASSWORD:-postgres}
+    restart: on-failure
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "${POSTGRES_USER:-postgres}"]
+      interval: 30s
+      timeout: 30s
+      retries: 3
+    volumes:
+      - data:/var/lib/postgresql/data
+    # ports:
+    #   - "5432:5432"
   web:
     env_file: .env
-    image: hakanensari/fixer
-    logging:
-      options:
-        max-size: "50m"
-        max-file: "10"
-    restart: unless-stopped
+    build:
+      context: ./app
+    command: unicorn -c config/unicorn.rb
+    entrypoint: bin/wait-for-it.sh db:5432 -s --
+    environment:
+      DATABASE_URL: postgres://postgres:postgres@db/postgres
+      RACK_ENV: development
+      VIRTUAL_HOST: localhost
+    expose:
+      - '8080'
+    links:
+      - db
   scheduler:
     env_file: .env
-    image: hakanensari/fixer
-    logging:
-      options:
-        max-size: "50m"
-        max-file: "10"
-    restart: unless-stopped
-  nginx-proxy:
-    image: jwilder/nginx-proxy
-    labels:
-      - "com.github.jrcs.letsencrypt_nginx_proxy_companion.nginx_proxy=true"
-    logging:
-      options:
-        max-size: "50m"
-        max-file: "10"
+    build:
+      context: ./app
+    command: bin/schedule
+    entrypoint: bin/wait-for-it.sh db:5432 -s --
+    environment:
+      DATABASE_URL: postgres://postgres:postgres@db/postgres
+      RACK_ENV: development
+    links:
+      - db
+  nginx:
+    image: nginx:1.15-alpine
+    command: "/bin/sh -c 'while :; do sleep 6h & wait $${!}; nginx -s reload; done & nginx -g \"daemon off;\"'"
     ports:
       - "80:80"
       - "443:443"
-    restart: unless-stopped
     volumes:
-      - /etc/nginx/conf.d
-      - /var/run/docker.sock:/tmp/docker.sock:ro
-      - ./limit_req.conf:/etc/nginx/conf.d/limit_req.conf:ro
-      - certs:/etc/nginx/certs:ro
-      - html:/usr/share/nginx/html
-      - vhost.d:/etc/nginx/vhost.d
-  letsencrypt-nginx-proxy-companion:
-    image: jrcs/letsencrypt-nginx-proxy-companion
-    depends_on:
-      - nginx-proxy
-    restart: unless-stopped
+      - ./data/nginx:/etc/nginx/conf.d
+      - ./data/certbot/conf:/etc/letsencrypt
+      - ./data/certbot/www:/var/www/certbot
+  certbot:
+    image: certbot/certbot
+    entrypoint: "/bin/sh -c 'trap exit TERM; while :; do certbot renew; sleep 12h & wait $${!}; done;'"
     volumes:
-      - /var/run/docker.sock:/var/run/docker.sock:ro
-      - certs:/etc/nginx/certs:rw
-      - html:/usr/share/nginx/html
-      - vhost.d:/etc/nginx/vhost.d
+      - ./data/certbot/conf:/etc/letsencrypt
+      - ./data/certbot/www:/var/www/certbot
+
 volumes:
-  certs:
-  html:
-  vhost.d:
+  data:
