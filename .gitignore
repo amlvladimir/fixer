@@ -2,3 +2,5 @@
 .env
 pkg
 data/nginx/app.conf
+data/certbot/conf/*
+data/certbot/www/*

@@ -1,6 +1,7 @@
 version: '3'
 services:
   db:
+    container_name: db
     image: postgres
     environment:
       POSTGRES_DB:        ${KONG_PG_DATABASE:-postgres}
@@ -17,6 +18,7 @@ services:
     # ports:
     #   - "5432:5432"
   web:
+    container_name: web
     env_file: .env
     build:
       context: ./app
@@ -31,6 +33,7 @@ services:
     links:
       - db
   scheduler:
+    container_name: scheduler
     env_file: .env
     build:
       context: ./app
@@ -42,6 +45,7 @@ services:
     links:
       - db
   nginx:
+    container_name: nginx
     image: nginx:1.15-alpine
     command: "/bin/sh -c 'while :; do sleep 6h & wait $${!}; nginx -s reload; done & nginx -g \"daemon off;\"'"
     ports:
@@ -51,12 +55,18 @@ services:
       - ./data/nginx:/etc/nginx/conf.d
       - ./data/certbot/conf:/etc/letsencrypt
       - ./data/certbot/www:/var/www/certbot
+#    links:
+#      - web
+#      - certbot
   certbot:
+    container_name: certbot
     image: certbot/certbot
     entrypoint: "/bin/sh -c 'trap exit TERM; while :; do certbot renew; sleep 12h & wait $${!}; done;'"
     volumes:
       - ./data/certbot/conf:/etc/letsencrypt
       - ./data/certbot/www:/var/www/certbot
+#    links:
+#      - nginx
 
 volumes:
   data:
